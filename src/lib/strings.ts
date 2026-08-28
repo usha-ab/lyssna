@@ -58,6 +58,11 @@ const STRINGS: Record<string, string> = {
   "errorEpubBroken": "EPUB-filen är skadad och gick inte att läsa.",
   "errorEpubCompression": "EPUB-filen använder en komprimering vi inte kan läsa.",
   "errorEpubNoText": "Hittade ingen läsbar text i boken.",
+  "fromClipboard": "Läs från urklipp",
+  "errorClipboard": "Kunde inte läsa urklipp. Tillåt åtkomst när webbläsaren frågar.",
+  "errorClipboardEmpty": "Urklippet är tomt.",
+  "errorShareEmpty": "Delningen innehöll ingen text att läsa upp.",
+  "errorShareFailed": "Den delade texten gick inte att spara.",
 };
 
 /** Slår upp en text och fyller i platshållare. Saknad nyckel ger nyckeln
