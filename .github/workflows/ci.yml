@@ -1,0 +1,53 @@
+# Grindvakten för repot.
+#
+# Kör samma tre kommandon som en utvecklare kör lokalt — lint, tester, bygge —
+# på varje pull request och på main. Poängen är att en trasig ändring ska
+# stoppas innan den deployas, inte upptäckas i appen efteråt.
+#
+# Inga hemligheter behövs: bygget klarar sig utan Supabase-nycklarna, eftersom
+# de bara läses när appen kör. Ett CI som inte har några hemligheter kan heller
+# inte läcka några.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# Läsrättigheter räcker för att bygga och testa.
+permissions:
+  contents: read
+
+# En ny push till samma gren gör den föregående körningen ointressant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint, tester och bygge
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # ci, inte install: låser installationen till package-lock.json och
+      # failar om filerna glidit isär, i stället för att tyst skriva om låset.
+      - name: Installera beroenden
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tester
+        run: npm test
+
+      - name: Bygge
+        run: npm run build
