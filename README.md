@@ -42,12 +42,53 @@ behöver inte köras igen här.
 
 ## Deploy
 
-1. Skapa ett Vercel-projekt mot det här repot (Next.js, inga särskilda inställningar).
-2. Lägg in miljövariablerna ur `.env.example`.
-3. Peka domänen (t.ex. `lyssna.usha.se`) på projektet.
-4. Lägg till `https://<domänen>/callback` under Supabase → Authentication →
-   URL Configuration → Redirect URLs, annars går inloggningslänkar inte att
-   lösa in.
+Appen ligger på Vercel och bygger om vid varje push till `main`. Produktion:
+<https://lyssna-nu.vercel.app> (och `lyssna.usha.se` när domänen är pekad).
+
+Miljövariabler (Production och Preview):
+
+| Variabel | Värde |
+| :-- | :-- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Usha Platforms Supabase-projekt |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Projektets **publishable**-nyckel (`sb_publishable_…`) |
+| `LISTEN_ALLOWED_USER_IDS` | user-id som får använda appen, kommaseparerat |
+
+Tre fallgropar, alla dyrköpta:
+
+- **Den gamla JWT-formade `anon`-nyckeln är avstängd i projektet.** Använder du
+  en sådan går det inte att logga in, utan att felet säger varför. Det ska vara
+  `sb_publishable_…`.
+- **`NEXT_PUBLIC_`-variabler bakas in när bygget körs**, inte när appen kör.
+  Läggs de till efteråt ser allt rätt ut i Vercels gränssnitt medan appen ändå
+  saknar dem — bygg om.
+- **Utan `LISTEN_ALLOWED_USER_IDS` *och* utan `SUPABASE_SERVICE_ROLE_KEY`
+  släpps ingen in**, inte ens en admin: admin-uppslaget kräver service-nyckeln.
+  Att sätta id-listan är enklare och betyder en hemlighet mindre att sprida.
+
+Kopplar du appen till ett Vercel-projekt: hoppa över Supabase-integrationen
+under *Optional Integrations*. Den provisionerar ett nytt Supabase-projekt och
+skriver över variablerna ovan.
+
+Sista steget ligger i Supabase: lägg till `https://<domänen>/callback` under
+Authentication → URL Configuration → Redirect URLs. Lösenordsinloggning
+fungerar utan det, men inloggningslänkar i mejl gör det inte.
+
+## Utveckling
+
+`main` är skyddad av ett ruleset: ändringar går via pull request, och
+`.github/workflows/ci.yml` kör lint, tester och bygge på varje sådan. Grenen
+raderas automatiskt när PR:en mergats.
+
+```bash
+npm run lint     # ESLint
+npm test         # 121 enhetstester (vitest)
+npm run build    # samma bygge som Vercel kör
+```
+
+Testerna täcker de delar där felen faktiskt bor: segmenteringen av text,
+sammanslagningen vid synk, EPUB-uppackningen, hopsättningen av PDF-fragment
+och SSRF-grinden. Uppspelningen och gränssnittet är inte enhetstestade — de
+kräver en webbläsare med talsyntes.
 
 ## Vad appen inte gör
 
