@@ -1,0 +1,41 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Samma paletta som Usha Platform, så appen känns som en del av samma familj
+   trots att den lever för sig. Mörkt är förvalt: det här är en app man har
+   uppe länge, ofta på kvällen och med skärmen dämpad. */
+:root {
+  --usha-black: #0a0a0b;
+  --usha-white: #fafaf9;
+  --usha-gold: #c8a445;
+  --usha-accent: #ff6b35;
+  --usha-muted: #8b8b8b;
+  --usha-border: #1f1f23;
+  --usha-card: #111113;
+  --usha-card-hover: #18181b;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --usha-black: #fafaf9;
+    --usha-white: #0a0a0b;
+    --usha-gold: #b8942e;
+    --usha-accent: #e55a2b;
+    --usha-muted: #6b6b6b;
+    --usha-border: #e5e5e5;
+    --usha-card: #ffffff;
+    --usha-card-hover: #f5f5f5;
+  }
+}
+
+body {
+  background: var(--usha-black);
+  color: var(--usha-white);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Läsvyn får inte markera text när man klickar sig fram mening för mening. */
+article span {
+  -webkit-tap-highlight-color: transparent;
+}
