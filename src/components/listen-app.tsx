@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useStrings } from "@/lib/strings";
 import {
   Check,
+  ClipboardCheck,
   ClipboardPaste,
   CloudOff,
   FileText,
@@ -78,6 +79,10 @@ export function ListenApp() {
   // Utloggad finns ingen server att prata med. Utan den här spärren skulle
   // varje sparning och radering skicka ett anrop som bara kan bli 401.
   const remoteRef = useRef(true);
+  // En delning som kom in via adressen och som ska öppnas respektive
+  // importeras så snart biblioteket är på plats.
+  const pendingOpenRef = useRef<string | null>(null);
+  const pendingImportRef = useRef<string | null>(null);
 
   const runSync = useCallback(async (force = false) => {
     if (!force && !remoteRef.current) return;
@@ -93,11 +98,37 @@ export function ListenApp() {
   }, []);
 
   // Lokalt först — vyn ska aldrig vänta på nätet — och sedan synk.
+  //
+  // Adressen kan bära med sig en delning: ?oppna=<id> när /dela redan sparat
+  // texten, ?importera=<url> när delningen bara var en länk. Parametrarna
+  // läses ur window.location i stället för useSearchParams, för att slippa
+  // en Suspense-gräns runt hela vyn för tre frågetecken.
   useEffect(() => {
     setDocuments(loadDocuments(window.localStorage));
     setReady(true);
+
+    const params = new URLSearchParams(window.location.search);
+    const open = params.get("oppna");
+    const importUrl = params.get("importera");
+    const shareError = params.get("delning");
+    if (open || importUrl || shareError) {
+      // Städa adressen direkt: delningen ska inte göras om vid en omladdning.
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    if (shareError) {
+      setError(t(shareError === "tom" ? "errorShareEmpty" : "errorShareFailed"));
+    }
+    if (importUrl) {
+      setTab("url");
+      setUrl(importUrl);
+      pendingImportRef.current = importUrl;
+    }
+    pendingOpenRef.current = open;
+
     void runSync(true);
-  }, [runSync]);
+    // Ska bara köras vid montering; t och runSync är stabila.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleProgress = useCallback((offset: number) => {
     const id = activeIdRef.current;
@@ -195,6 +226,22 @@ export function ListenApp() {
     [add, t]
   );
 
+  // Urklippet: ett tryck i stället för att klistra in och sedan trycka spela.
+  // Chrome kräver att sidan är i förgrunden och frågar om lov första gången.
+  const readClipboard = useCallback(async () => {
+    setError(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) {
+        setError(t("errorClipboardEmpty"));
+        return;
+      }
+      add({ text, source: "paste" });
+    } catch {
+      setError(t("errorClipboard"));
+    }
+  }, [add, t]);
+
   const open = useCallback(
     async (doc: ListenDocument) => {
       // Ett dokument som kommit hit via synk har bara metadata tills nu.
@@ -226,6 +273,24 @@ export function ListenApp() {
     },
     [t]
   );
+
+  // En delning väntar tills biblioteket är på plats: dokumentet som /dela
+  // sparade på servern finns inte lokalt förrän synken hämtat hem det.
+  useEffect(() => {
+    const id = pendingOpenRef.current;
+    if (id) {
+      const doc = documents.find((d) => d.id === id);
+      if (doc) {
+        pendingOpenRef.current = null;
+        void open(doc);
+      }
+      return;
+    }
+    if (pendingImportRef.current && !busy) {
+      pendingImportRef.current = null;
+      void importUrl();
+    }
+  }, [documents, busy, open, importUrl]);
 
   const remove = useCallback(
     (doc: ListenDocument) => {
@@ -297,7 +362,14 @@ export function ListenApp() {
               className="w-full rounded-xl border border-[var(--usha-border)] bg-[var(--usha-black)] p-3 text-sm text-[var(--usha-white)] outline-none focus:border-[var(--usha-gold)]"
             />
             <div className="flex items-center justify-between gap-3">
-              <span className="text-xs text-[var(--usha-muted)]">
+              <button
+                onClick={() => void readClipboard()}
+                className="flex items-center gap-1.5 text-xs text-[var(--usha-muted)] transition hover:text-[var(--usha-white)]"
+              >
+                <ClipboardCheck size={14} />
+                {t("fromClipboard")}
+              </button>
+              <span className="hidden text-xs text-[var(--usha-muted)] sm:inline">
                 {t("wordCount", {
                   words: pastedWords,
                   duration: formatDuration(estimateSeconds(pastedWords)),
